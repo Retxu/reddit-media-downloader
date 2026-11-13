@@ -1,0 +1,9 @@
+const express=require('express');const path=require('node:path');const fs=require('node:fs');const {create,get}=require('./jobs');
+const app=express();app.set('trust proxy',true);app.use(express.json({limit:'32kb'}));app.use(express.static(path.join(__dirname,'public')));
+const limits=new Map();app.use('/api', (req,res,next)=>{const ip=req.ip||req.socket.remoteAddress,now=Date.now();let x=limits.get(ip)||{n:0,t:now};if(now-x.t>60000)x={n:0,t:now};x.n++;limits.set(ip,x);if(x.n>20)return res.status(429).json({error:'Trop de requêtes. Attendez une minute.'});next();});
+app.post('/api/jobs',(req,res)=>{try{if(!req.body||typeof req.body.target!=='string')return res.status(400).json({error:'Le paramètre target est requis.'});const job=create(req.body);res.status(202).json({id:job.id,status:job.status});}catch(e){res.status(400).json({error:e.message});}});
+app.get('/api/jobs/:id',(req,res)=>{const j=get(req.params.id);if(!j)return res.status(404).json({error:'Tâche introuvable ou expirée.'});res.json({id:j.id,status:j.status,progress:j.progress,total:j.total,error:j.error,warnings:j.warnings||[],files:j.status==='complete'&&j.format==='links'?j.files.map((f,i)=>({name:f.name,url:`/api/jobs/${j.id}/files/${i}`})):undefined,download:j.archive?`/api/jobs/${j.id}/download`:undefined});});
+app.get('/api/jobs/:id/files/:n',(req,res)=>{const j=get(req.params.id),n=Number(req.params.n);if(!j||j.format!=='links'||!Number.isInteger(n)||!j.files[n])return res.status(404).json({error:'Fichier introuvable.'});res.download(j.files[n].path,j.files[n].name);});
+app.get('/api/jobs/:id/download',(req,res)=>{const j=get(req.params.id);if(!j||!j.archive||!fs.existsSync(j.archive))return res.status(404).json({error:'Archive indisponible.'});res.download(j.archive,path.basename(j.archive));});
+app.get('/health',(_req,res)=>res.json({ok:true}));
+const port=Number(process.env.PORT)||3000;app.listen(port,'0.0.0.0',()=>console.log(`reddit-dl écoute sur 0.0.0.0:${port}`));

@@ -1,0 +1,17 @@
+{
+  "name": "reddit-dl-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Self-hosted Reddit media downloader",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "archiver": "^7.0.1",
+    "express": "^4.21.2"
+  }
+}
